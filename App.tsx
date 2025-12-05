@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { HashRouter } from 'react-router-dom';
+// Router removido para corrigir tela branca em ambientes de preview que não suportam Hash/History API corretamente
 import { LayoutDashboard, List, Leaf, Upload, History as HistoryIcon, FileText, LogOut, CheckCircle2, AlertCircle, RefreshCw, Mail, BellRing, Send, BarChart3 } from 'lucide-react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { ref, onValue, set, push, remove, child, update } from 'firebase/database';
@@ -76,6 +76,8 @@ const App: React.FC = () => {
     }
 
     // Listen to Assets
+    // Mantido Realtime Database pois todo o código (onValue, ref) é específico para ele.
+    // Migrar para Firestore exigiria reescrever toda a camada de dados.
     const assetsRef = ref(db, `users/${user.uid}/assets`);
     const unsubAssets = onValue(assetsRef, (snapshot) => {
         const data = snapshot.val();
@@ -88,8 +90,6 @@ const App: React.FC = () => {
                };
             });
             setAssets(list);
-            // Reset maintenance check only if list is empty to avoid loop, 
-            // but we want persistent visual alerts handled by AssetList
         } else {
             setAssets([]);
         }
@@ -195,10 +195,6 @@ const App: React.FC = () => {
         });
 
         if (alerts.length > 0) {
-            // Nota Técnica: Para envio 100% automático sem login, seria necessário implementar 
-            // uma Cloud Function no Firebase (Backend) que roda via cron job.
-            // No front-end, fazemos a checagem assim que o usuário loga.
-
             const processingId = Date.now();
             setToasts(prev => [...prev, {
                 id: processingId,
@@ -211,7 +207,7 @@ const App: React.FC = () => {
             
             setToasts(prev => prev.filter(t => t.id !== processingId));
 
-            // Notificação persistente (duration: Infinity logic handled in render)
+            // Notificação persistente
             const id = Date.now();
             setToasts(prev => {
                 if (prev.some(t => t.title === "Manutenção Anual")) return prev;
@@ -220,7 +216,7 @@ const App: React.FC = () => {
                     title: "Manutenção Anual",
                     message: `${alerts.length} ativos críticos > 9 meses. Ação necessária.`,
                     type: 'alert',
-                    isPersistent: true, // Flag customizada para não sumir
+                    isPersistent: true, 
                     action: { 
                         label: 'Revisar & Enviar Alerta', 
                         onClick: () => handleOpenEmailPreview(emailData)
@@ -231,7 +227,6 @@ const App: React.FC = () => {
         setMaintenanceChecked(true);
     };
 
-    // Pequeno delay para garantir que a UI carregou antes de iniciar o processamento pesado
     const timer = setTimeout(runMaintenanceCheck, 2000); 
     return () => clearTimeout(timer);
   }, [assets, maintenanceChecked]);
@@ -277,7 +272,6 @@ const App: React.FC = () => {
   const addToast = (title: string, message: string, type: 'success' | 'error' | 'info' | 'alert') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, title, message, type }]);
-    // Auto remove normal toasts
     if (type !== 'alert') {
         setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
     }
@@ -296,10 +290,8 @@ const App: React.FC = () => {
       try {
         const text = event.target?.result as string;
         const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
-        
         if (lines.length < 2) throw new Error("File empty");
 
-        // Save History - Normalizing data to ensure it's saved as an object/array structure that we can read later
         if (assets.length > 0) {
             const timestamp = Date.now();
             const historyRef = child(ref(db, `users/${user.uid}/history`), `${timestamp}`);
@@ -312,7 +304,6 @@ const App: React.FC = () => {
             });
         }
 
-        // Parse CSV Logic (Keep existing logic)
         const firstLine = lines[0];
         const separator = firstLine.includes(';') ? ';' : ',';
         const headers = firstLine.toLowerCase().split(separator).map(h => h.replace(/['"]+/g, '').trim());
@@ -389,12 +380,10 @@ const App: React.FC = () => {
         const assetsRef = ref(db, `users/${user.uid}/assets`);
         const restoredDataObj: Record<string, any> = {};
         
-        // Critical Fix: Firebase sometimes returns arrays as objects with index keys. We must normalize.
         const rawData = item.data || [];
         const assetsList = Array.isArray(rawData) ? rawData : Object.values(rawData);
 
         assetsList.forEach((asset: Asset) => {
-             // Ensure every asset has a key
              const key = asset.id || push(assetsRef).key!;
              restoredDataObj[key] = { ...asset, id: key };
         });
@@ -411,7 +400,6 @@ const App: React.FC = () => {
   const handleDeleteHistory = async (id: string) => {
     if (!user || !confirm("Confirma exclusão deste snapshot de backup?")) return;
     try {
-        // Fix: Ensure path is exact
         const itemRef = ref(db, `users/${user.uid}/history/${id}`);
         await remove(itemRef);
         addToast('Sistema', 'Histórico removido permanentemente.', 'success');
@@ -421,7 +409,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Shared export function
   const handleExportCSV = () => {
     if (assets.length === 0) {
         addToast('Aviso', 'Sem dados para exportar.', 'info');
@@ -447,9 +434,7 @@ const App: React.FC = () => {
   if (!user) return <LoginScreen onLoginSuccess={() => {}} />;
 
   return (
-    <HashRouter>
-      <div className="flex h-screen bg-slate-50 overflow-hidden print:overflow-visible print:h-auto print:bg-white font-sans">
-        
+    <div className="flex h-screen bg-slate-50 overflow-hidden print:overflow-visible print:h-auto print:bg-white font-sans">
         {/* Toast Notification Area */}
         <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-4 pointer-events-none print:hidden">
             {toasts.map((t) => (
@@ -477,7 +462,6 @@ const App: React.FC = () => {
 
                 {t.action && (
                   <div className="mt-3 pl-9">
-                    {/* Alterado para disparar o modal, não o envio direto */}
                     {t.action.onClick ? (
                        <button 
                          onClick={t.action.onClick}
@@ -502,7 +486,6 @@ const App: React.FC = () => {
 
         {/* Sidebar */}
         <aside className="w-20 lg:w-72 bg-[#002e12] text-white flex flex-col shadow-2xl z-30 transition-all duration-300 print:hidden relative overflow-hidden">
-          {/* Background Pattern */}
           <div className="absolute inset-0 opacity-5 pointer-events-none" style={{backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px'}}></div>
 
           <div className="h-24 flex items-center px-6 border-b border-white/10 gap-3 bg-[#00200a] relative z-10">
@@ -561,7 +544,6 @@ const App: React.FC = () => {
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col h-screen overflow-hidden print:h-auto print:overflow-visible">
-          
           {/* Header */}
           <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm print:hidden">
             <div className="flex items-center gap-6">
@@ -671,11 +653,10 @@ const App: React.FC = () => {
           initialBody={pendingEmailData.body}
           initialRecipient={alertRecipient}
         />
-      </div>
-      
-      {/* Hidden File Input */}
-      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".csv" />
-    </HashRouter>
+        
+        {/* Hidden File Input */}
+        <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".csv" />
+    </div>
   );
 };
 
