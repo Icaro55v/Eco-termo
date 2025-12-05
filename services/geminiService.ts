@@ -37,7 +37,7 @@ export const analyzeAssetsWithGemini = async (assets: Asset[]): Promise<string> 
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 32768 }
+        thinkingConfig: { thinkingBudget: 2048 }
       }
     });
 
@@ -81,32 +81,31 @@ export const generateMaintenanceEmail = async (assets: Asset[]): Promise<{subjec
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 32768 }
+        thinkingConfig: { thinkingBudget: 2048 }
       }
     });
 
     const text = response.text || "";
     const parts = text.split("|||");
     
-    if (parts.length === 2) {
+    if (parts.length >= 2) {
       return { subject: parts[0].trim(), body: parts[1].trim() };
     }
 
     return {
       subject: "ALERTA TÉCNICO: Manutenção Preventiva Anual",
-      body: `Prezado Gestor,\n\nIdentificamos ativos críticos necessitando de intervenção imediata.\n\nFavor verificar o painel de controle.\n\nEcoTermo System`
+      body: `Prezado Gestor,\n\nIdentificamos ativos críticos necessitando de intervenção imediata devido ao ciclo anual.\n\nFavor verificar o painel de controle EcoTermo.\n\nAtenciosamente,\nSistema EcoTermo`
     };
 
   } catch (error) {
     console.error("Gemini Email Generation Error:", error);
     return {
-      subject: "FALHA SISTÊMICA",
-      body: "Houve uma falha na comunicação com o módulo de IA."
+      subject: "FALHA SISTÊMICA: Erro na Geração de Alerta",
+      body: "Houve uma falha na comunicação com o módulo de IA para gerar o detalhamento técnico. Verifique os logs do sistema."
     };
   }
 };
 
-// Nova Função: Power BI Generator com Thinking Mode
 export const generateDataAnalysis = async (dataSample: any[], headers: string[]): Promise<AnalysisResult> => {
   try {
     const prompt = `
@@ -149,8 +148,8 @@ export const generateDataAnalysis = async (dataSample: any[], headers: string[])
       model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 32768 },
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 4096 }
       }
     });
 

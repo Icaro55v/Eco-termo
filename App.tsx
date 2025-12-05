@@ -135,8 +135,9 @@ const App: React.FC = () => {
       addToast('Excluído', 'Ativo removido do inventário.', 'success');
   };
 
-  // --- INTEGRATION: PYTHON BACKEND EMAIL SENDER (MOCKED) ---
+  // --- INTEGRATION: EMAIL SENDER MOCK ---
   const finalizeSendEmail = async (to: string, subject: string, body: string) => {
+    // Aqui seria a integração real com backend (SendGrid, Mailgun, etc.)
     console.log(`--- SIMULAÇÃO DE ENVIO DE E-MAIL ---`);
     console.log(`Para: ${to}`);
     console.log(`Assunto: ${subject}`);
@@ -147,7 +148,7 @@ const App: React.FC = () => {
     setAlertRecipient(to);
 
     // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     setEmailModalOpen(false);
     addToast('E-mail Enviado', `Relatório enviado com sucesso para ${to}.`, 'success');
@@ -230,6 +231,7 @@ const App: React.FC = () => {
         setMaintenanceChecked(true);
     };
 
+    // Pequeno delay para garantir que a UI carregou antes de iniciar o processamento pesado
     const timer = setTimeout(runMaintenanceCheck, 2000); 
     return () => clearTimeout(timer);
   }, [assets, maintenanceChecked]);
