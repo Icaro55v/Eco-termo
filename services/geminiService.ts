@@ -1,7 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { Asset, AnalysisResult } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Função helper para obter o cliente AI de forma segura em ambientes browser
+const getAiClient = () => {
+  // Verificação segura para evitar ReferenceError: process is not defined no navegador
+  const apiKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) ? process.env.API_KEY : '';
+  return new GoogleGenAI({ apiKey });
+};
 
 export const analyzeAssetsWithGemini = async (assets: Asset[]): Promise<string> => {
   try {
@@ -33,6 +38,7 @@ export const analyzeAssetsWithGemini = async (assets: Asset[]): Promise<string> 
       Formate a resposta em Markdown limpo e profissional, em Português do Brasil.
     `;
 
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
@@ -77,6 +83,7 @@ export const generateMaintenanceEmail = async (assets: Asset[]): Promise<{subjec
       2. Corpo do E-mail
     `;
 
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
@@ -144,6 +151,7 @@ export const generateDataAnalysis = async (dataSample: any[], headers: string[])
       }
     `;
 
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
